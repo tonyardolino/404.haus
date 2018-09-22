@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+<head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>touchpi custom code</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+        <link rel="stylesheet" href="css/bootstrap.css">
+        <style>
+            body .row {
+                padding-top: 50px;
+                padding-bottom: 20px;
+            }
+            .container .container-fluid {
+                padding: 40px 30px;
+            }
+            .carousel-control {
+                width: 5%;
+            }
+            .sidenav {
+                padding-top: 50px;
+                padding-bottom: 20px;
+            }
+        </style>
+        <link rel="stylesheet" href="css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h2>touchpi Magic Mirror Custom Code</h2><br>
+          <h4>Start up code in /home/pi/mm.sh this shell scrip is run automatically at startup using pm2 (program manager 2) start</h4>
+          <pre><code>
+cd ~/MagicMirror
+DISPLAY=:0 npm start
+          </code></pre><br>
+          <h4>Start up code rpi-rgb-led-matrix in /etc/rc.local</h4>
+          <pre><code>
+sudo /home/pi/rpi-rgb-led-matrix/bindings/python/samples/text.sh 2>&1 > /home/pi/textlog.log &
+          </code></pre><br>
+          <h4>Start shell /home/pi/rpi-rgb-led-matrix/bindings/python/samples/text.sh</h4>
+          <pre><code>
+sudo python /home/pi/rpi-rgb-led-matrix/bindings/python/samples/runtext.py --led-rows=16 --led-cols=32 --led-chain=2 --led-slowdown-gpio=2 --led-gpio-mapping=adafruit-hat-pwm --led-pwm-bits=11 --led-scan-mode=1 --led-brightness=75 --led-pixel-mapper=Rotate:180
+          </code></pre><br>
+          <h4>Custom matrix code in /home/pi/rpi-rgb-led-matrix/bindings/python/samples/runtext.py</h4>      
+          <pre><code>
+#!/usr/bin/env python
+# Display a runtext with double-buffering.
+from samplebase import SampleBase
+from rgbmatrix import graphics
+import time
+import os, random
+import feedparser
+from random import shuffle
+
+
+items=[]
+feeds=[
+    #enter all news feeds you want here
+    "http://feeds.reuters.com/reuters/topNews",
+    "http://feeds.foxnews.com/foxnews/latest"
+    #"http://www.fda.gov/AboutFDA/ContactFDA/StayInformed/RSSFeeds/PressReleases/rss.xml",
+    #"http://www.fiercepharma.com/feed",
+    #"http://www.fiercebiotech.com/feed",
+    ]
+
+
+
+
+class RunText(SampleBase):
+    def __init__(self, *args, **kwargs):
+        super(RunText, self).__init__(*args, **kwargs)
+        self.parser.add_argument("-t", "--text", help="The text to scroll on the RGB LED panel", default="Hello world!")
+
+    def run(self):
+        offscreen_canvas = self.matrix.CreateFrameCanvas()
+        font = graphics.Font()
+        font.LoadFont("/home/pi/rpi-rgb-led-matrix/fonts/9x18B.bdf")
+        #font.LoadFont("/home/pi/rpi-rgb-led-matrix/fonts/9x18.bdf")
+        textColor = graphics.Color(255, 255, 0)
+        pos = offscreen_canvas.width
+        #createLinks()
+        my_text = self.args.text
+
+        while True:
+            try:
+                populateItems()
+                for idx, item in enumerate(items):
+                    #print item["title"]
+                    my_text = unicode(item["title"])
+                    r,g,b = randCol(idx)
+                    textColor =  graphics.Color(r, g, b)
+                    len = 0
+                    pos = offscreen_canvas.width
+                    while pos + len:
+                        offscreen_canvas.Clear()
+                        len = graphics.DrawText(offscreen_canvas, font, pos, 13, textColor, my_text)
+                        #print("pos:", pos, "len:", len)
+                        pos -= 1
+                        if (pos + len < 0):
+                           pos = offscreen_canvas.width
+
+                        time.sleep(0.010)#org 0.05
+                        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+            except ValueError:
+                print("Bummer :( I couldn't make you 'dem links :(")
+            finally:
+                print("\nNews Feeds updated from:!\n\n")
+
+def colorRed():
+    return (255, 0, 0)
+
+def colorGreen():
+    return (0, 255, 0)
+
+def colorBlue():
+    return (0, 0, 255)
+
+def colorRandom():
+    return (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+
+def populateItems():
+    #first clear out everything
+    del items[:]
+    for url in feeds:
+        print url
+        feed=feedparser.parse(url)
+        posts=feed["items"]
+        for post in posts:
+            items.append(post)
+    shuffle(items)
+
+def randCol(index = -1):
+    if index % 3 == 0:
+        return colorRed()
+    elif index % 3 == 1:
+        return colorGreen()
+    elif index % 3 == 2:
+        return colorBlue()
+    else:
+        return colorRandom()
+
+# Main function
+if __name__ == "__main__":
+    run_text = RunText()
+    if (not run_text.process()):
+        run_text.print_help()
+
+
+</code></pre><br>
+</div> 
+</div>
+</div>    
+</body>
+</html>

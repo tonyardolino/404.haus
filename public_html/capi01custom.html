@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+<head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title>capi01 custom code</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+        <link rel="stylesheet" href="css/bootstrap.css">
+        <style>
+            body .row {
+                padding-top: 50px;
+                padding-bottom: 20px;
+            }
+            .container .container-fluid {
+                padding: 40px 30px;
+            }
+            .carousel-control {
+                width: 5%;
+            }
+            .sidenav {
+                padding-top: 50px;
+                padding-bottom: 20px;
+            }
+        </style>
+        <link rel="stylesheet" href="css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+<div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+            <h2>capi01 Custom Code</h2><br>
+          <h4>Custom startup shell script /home/pi/rpi-fb-matrix/run.sh</h4>
+          <pre><code>sudo /home/pi/rpi-fb-matrix/rpi-fb-matrix /home/pi/rpi-fb-matrix/matrix.cfg --led-rgb-sequence=rbg --led-slowdown-gpio=2 --led-gpio-mapping=adafruit-hat-pwm --led-pwm-bits=11 --led-scan-mode=1 --led-brightness=100</code></pre>
+          <br>
+          <h4>Start up code in /etc/rc.local</h4>
+          <pre><code>sudo /home/pi/rpi-fb-matrix/run.sh 2>&1 > /home/pi/fblog.log &
+python /home/pi/motion.py
+          </code></pre><br>
+          <h4>Motion Sensor PIR and RPI Camera code in /home/pi/motion.py</h4>
+          <pre><code>
+from gpiozero import MotionSensor
+from picamera import PiCamera
+import time
+
+pir = MotionSensor(25)
+camera = PiCamera()
+
+while True:
+    pir.wait_for_motion()
+    if pir.motion_detected:
+        #print(&quot;Person Detected&quot;)
+        camera.start_preview(fullscreen=False,window=(900,496,128,128))
+        #camera.start_preview()
+        #for effect in camera.IMAGE_EFFECTS:
+        #       camera.image_effect = effect
+        #       camera.annotate_text = &quot;Effect: %s&quot; % effect
+        time.sleep(10)
+        camera.stop_preview()
+        # Wait 10 seconds before repeating
+        #time.sleep(10)
+
+          </code></pre><br>
+          <h4>Rpi-fb-matrix matrix.cfg /home/pi/rpi-fb-matrix/matrix.cfg</h4>
+          <pre><code>
+// LED Matrix Display Configuration
+
+// Define the entire width and height of the display in pixels.
+// This is the _total_ width and height of the rectangle defined by all the
+// chained panels.  The width should be a multiple of the panel pixel width (32),
+// and the height should be a multiple of the panel pixel height (8, 16, or 32).
+display_width = 128;
+display_height = 128;
+
+// Define the width of each panel in pixels.  This should always be 32 (but can
+// in theory be changed).
+panel_width = 64;
+
+// Define the height of each panel in pixels.  This is typically 8, 16, or 32.
+// NOTE: Each panel in the display _must_ be the same height!  You cannot mix
+// 16 and 32 pixel high panels for example.
+panel_height = 64;
+
+// Define the total number of panels in each chain.  Count up however many
+// panels are connected together and put that value here.  If you're using
+// multiple parallel chains count each one up separately and pick the largest
+// value for this configuration.
+chain_length = 4;
+
+// Define the total number of parallel chains.  If using the Adafruit HAT you
+// can only have one chain so stick with the value 1.  The Pi 2 can support up
+// to 3 parallel chains, see the rpi-rgb-led-matrix library for more information:
+//   https://github.com/hzeller/rpi-rgb-led-matrix#chaining-parallel-chains-and-coordinate-system
+parallel_count = 1;
+
+// Configure each LED matrix panel.
+// This is a two-dimensional array with an entry for each panel.  The array
+// defines the grid that will subdivide the display, so for example a 64x64 size
+// display with 32x32 pixel panels would be a 2x2 array of panel configurations.
+//
+// For each panel you must set the order that it is within its chain, i.e. the
+// first panel in a chain is order = 0, the next one is order = 1, etc.  You can
+// also set a rotation for each panel to account for changes in panel orientation
+// (like when 'snaking' a series of panels end to end for shorter wire runs).
+//
+// For example the configuration below defines this grid display of panels and
+// their wiring (starting from the upper right panel and snaking left, down, and
+// right to the bottom right panel):
+//       ______________    ______________
+//      |    Panel     |  |    Panel     |
+//   /==| order  = 1   |<=| order  = 0   |<= Chain start (from Pi)
+//   |  | rotate = 0   |  | rotate = 0   |
+//   |  |______________|  |______________|
+//   |   ______________    ______________
+//   |  |    Panel     |  |    Panel     |
+//   \==| order  = 2   |=>| order  = 3   |
+//      | rotate = 180 |  | rotate = 180 |
+//      |______________|  |______________|
+//
+// Notice the chain starts in the upper right and snakes around to the bottom
+// right.  The order of each panel is set as its position along the chain,
+// and rotation is applied to the lower panels that are flipped around relative
+// to the panels above them.
+//
+// Not shown but if you're using parallel chains you can specify for each entry
+// in the panels list a 'parallel = x;' option where x is the ID of a parallel
+// chain (0, 1, or 2).
+panels = (
+( { order = 1; rotate =   0; }, { order = 0; rotate =   0; } ),
+( { order = 2; rotate = 180; }, { order = 3; rotate = 180; } )
+)
+
+// By default the rpi-fb-matrix tool will resize and scale down the screen
+// to fit the resolution of the display panels.  However you can instead grab
+// a specific pixel-perfect copy of a region of the screen by setting the x, y
+// screen pixel coordinates below.  A rectangle of the exact size of the display
+// (i.e. display_width x display_height pixels) will be copied from the screen
+// starting at the provided x, y coordinates.  Comment this out to disable
+// this crop behavior and instead resize the screen down to the matrix display.
+#crop_origin = (736, 386)
+crop_origin = (896,476)
+
+          </code></pre><br>
+          <h4>Custom rpi-fb-matrix code /home/pi/rpi-fb-matrix/rpi-fb-matrix.cpp</h4>      
+          <pre><code>
+// -*- mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; -*-
+// Program to copy the contents of the Raspberry Pi primary display to LED matrices.
+// Author: Tony DiCola
+#include &lt;iostream&gt;
+#include &lt;stdexcept&gt;
+
+#include &quot;Adafruit_PixelDust.h&quot;
+#include &quot;lis3dh.h&quot;
+#include &lt;bcm_host.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;led-matrix.h&gt;
+#include &lt;linux/fb.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;signal.h&gt;
+#include &lt;time.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;string.h&gt;
+#include &lt;link.h&gt;
+#include &quot;pixy.h&quot;
+
+#include &quot;Config.h&quot;
+#include &quot;GridTransformer.h&quot;
+
+using namespace std;
+using namespace rgb_matrix;
+
+#define BLOCK_BUFFER_SIZE    25
+
+// Pixy Block buffer //
+struct Block blocks[BLOCK_BUFFER_SIZE];
+
+
+#define N_GRAINS (8*8*8) ///&lt; Number of sand grains on 64x64 matrix
+int     nGrains = N_GRAINS; // Runtime grain count (adapts to res)
+Adafruit_LIS3DH      lis3dh;
+
+uint8_t colors[][3] = { // Sand grain colors, 8 groups...
+          0,  0,  0,   // Black
+        120, 79, 23,   // Brown
+        228,  3,  3,   // Red
+        255,140,  0,   // Orange
+        255,237,  0,   // Yellow
+          0,128, 38,   // Green
+          0, 77,255,   // Blue
+        117,  7,135 }; // Purple
+
+#define BG_RED    0 // Background color (r,g,b)
+#define BG_GREEN 20
+#define BG_BLUE  80
+
+// Global to keep track of if the program should run.
+// Will be set false by a SIGINT handler when ctrl-c is
+// pressed, then the main loop will cleanly exit.
+volatile bool running = true;
+
+// Class to encapsulate all the logic for capturing an image of the Pi's primary
+// display.  Manages all the BCM GPU and CPU resources automatically while in scope.
+class BCMDisplayCapture {
+public:
+  BCMDisplayCapture(int width=-1, int height=-1):
+    _width(width),
+    _height(height),
+    _display(0),
+    _screen_resource(0),
+    _screen_data(NULL)
+  {
+    // Get information about primary/HDMI display.
+    _display = vc_dispmanx_display_open(0);
+    if (!_display) {
+      throw runtime_error(&quot;Unable to open primary display!&quot;);
+    }
+    DISPMANX_MODEINFO_T display_info;
+    if (vc_dispmanx_display_get_info(_display, &amp;display_info)) {
+      throw runtime_error(&quot;Unable to get primary display information!&quot;);
+    }
+    cout &lt;&lt; &quot;Primary display:&quot; &lt;&lt; endl
+         &lt;&lt; &quot; resolution: &quot; &lt;&lt; display_info.width &lt;&lt; &quot;x&quot; &lt;&lt; display_info.height &lt;&lt; endl
+         &lt;&lt; &quot; format: &quot; &lt;&lt; display_info.input_format &lt;&lt; endl;
+    // If no width and height were specified then grab the entire screen.
+    if ((_width == -1) || (_height == -1)) {
+      _width = display_info.width;
+      _height = display_info.height;
+    }
+    // Create a GPU image surface to hold the captured screen.
+    uint32_t image_prt;
+    _screen_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB888, _width, _height, &amp;image_prt);
+    if (!_screen_resource) {
+      throw runtime_error(&quot;Unable to create screen surface!&quot;);
+    }
+    // Create a rectangular region of the captured screen size.
+    vc_dispmanx_rect_set(&amp;_rect, 0, 0, _width, _height);
+    // Allocate CPU memory for copying out the captured screen.  Must be aligned
+    // to a larger size because of GPU surface memory size constraints.
+    _pitch = ALIGN_UP(_width*3, 32);
+    _screen_data = new uint8_t[_pitch*_height];
+  }
+
+  void capture() {
+    // Capture the primary display and copy it from GPU to CPU memory.
+    vc_dispmanx_snapshot(_display, _screen_resource, (DISPMANX_TRANSFORM_T)0);
+    vc_dispmanx_resource_read_data(_screen_resource, &amp;_rect, _screen_data, _pitch);
+  }
+
+  void getPixel(int x, int y, uint8_t* r, uint8_t* g, uint8_t* b) {
+    // Grab the requested pixel from the last captured display image.
+    uint8_t* row = _screen_data + (y*_pitch);
+    *r = row[x*3];
+    *g = row[x*3+1];
+    *b = row[x*3+2];
+  }
+
+  ~BCMDisplayCapture() {
+    // Clean up BCM and other resources.
+    if (_screen_resource != 0) {
+      vc_dispmanx_resource_delete(_screen_resource);
+    }
+    if (_display != 0) {
+      vc_dispmanx_display_close(_display);
+    }
+    if (_screen_data != NULL) {
+      delete[] _screen_data;
+    }
+  }
+
+private:
+  int _width,
+      _height,
+      _pitch;
+  DISPMANX_DISPLAY_HANDLE_T _display;
+  DISPMANX_RESOURCE_HANDLE_T _screen_resource;
+  VC_RECT_T _rect;
+  uint8_t* _screen_data;
+};
+
+static void sigintHandler(int s) {
+  running = false;
+}
+
+static void usage(const char* progname) {
+    std::cerr &lt;&lt; &quot;Usage: &quot; &lt;&lt; progname &lt;&lt; &quot; [flags] [config-file]&quot; &lt;&lt; std::endl;
+    std::cerr &lt;&lt; &quot;Flags:&quot; &lt;&lt; std::endl;
+    rgb_matrix::RGBMatrix::Options matrix_options;
+    rgb_matrix::RuntimeOptions runtime_options;
+    runtime_options.drop_privileges = -1;  // Need root
+    rgb_matrix::PrintMatrixFlags(stderr, matrix_options, runtime_options);
+}
+
+int main(int argc, char** argv) {
+  try {
+    // Initialize from flags.
+    rgb_matrix::RGBMatrix::Options matrix_options;
+    rgb_matrix::RuntimeOptions runtime_options;
+    runtime_options.drop_privileges = -1;  // Need root
+    if (!rgb_matrix::ParseOptionsFromFlags(&amp;argc, &amp;argv,
+                                           &amp;matrix_options, &amp;runtime_options)) {
+      usage(argv[0]);
+      return 1;
+    }
+
+    // Read additional configuration from config file if it exists
+    Config config(&amp;matrix_options, argc &gt;= 2 ? argv[1] : &quot;/dev/null&quot;);
+    cout &lt;&lt; &quot;Using config values: &quot; &lt;&lt; endl
+         &lt;&lt; &quot; display_width: &quot; &lt;&lt; config.getDisplayWidth() &lt;&lt; endl
+         &lt;&lt; &quot; display_height: &quot; &lt;&lt; config.getDisplayHeight() &lt;&lt; endl
+         &lt;&lt; &quot; panel_width: &quot; &lt;&lt; config.getPanelWidth() &lt;&lt; endl
+         &lt;&lt; &quot; panel_height: &quot; &lt;&lt; config.getPanelHeight() &lt;&lt; endl
+         &lt;&lt; &quot; chain_length: &quot; &lt;&lt; config.getChainLength() &lt;&lt; endl
+         &lt;&lt; &quot; parallel_count: &quot; &lt;&lt; config.getParallelCount() &lt;&lt; endl;
+
+    // Set screen capture state depending on if a crop region is specified or not.
+    // When not cropped grab the entire screen and resize it down to the LED display.
+    // However when cropping is enabled instead grab the entire screen (by
+    // setting the capture_width and capture_height to -1) and specify an offset
+    // to the start of the crop rectangle.
+    int capture_width = config.getDisplayWidth();
+    int capture_height = config.getDisplayHeight();
+    int x_offset = 0;
+    int y_offset = 0;
+    if (config.hasCropOrigin()) {
+      cout &lt;&lt; &quot; crop_origin: (&quot; &lt;&lt; config.getCropX() &lt;&lt; &quot;, &quot; &lt;&lt; config.getCropY() &lt;&lt; &quot;)&quot; &lt;&lt; endl;
+      capture_width = -1;
+      capture_height = -1;
+      x_offset = config.getCropX();
+      y_offset = config.getCropY();
+    }
+
+
+    // Initialize matrix library.
+    // Create canvas and apply GridTransformer.
+    RGBMatrix *canvas = CreateMatrixFromOptions(matrix_options, runtime_options);
+    if (config.hasTransformer()) {
+      canvas-&gt;ApplyStaticTransformer(config.getGridTransformer());
+    }
+    canvas-&gt;Clear();
+    FrameCanvas *offscreen_canvas = canvas-&gt;CreateFrameCanvas();
+    int width = canvas-&gt;width();
+    int height = canvas-&gt;height();
+    int ii, i, xx, yy, zz, scale, bounce;
+    char buf[128];
+    int blocks_copied;
+    dimension_t  sx, sy;
+    dimension_t  x, y;
+    int pxx = 0;
+    int pyy = 0;
+
+    if(width  &lt; 64) nGrains /= 2; // Adjust sand count
+    if(height &lt; 64) nGrains /= 2; // for smaller matrices
+    //if(lis3dh.begin()) {
+    //      puts(&quot;LIS3DH init failed&quot;);
+    //      return 2;
+    //}
+
+    pixy_close();
+    int pixy_init_status = pixy_init();
+
+    // Was there an error initializing pixy? //
+    if(!pixy_init_status == 0)
+    {
+     // Error initializing Pixy //
+        printf(&quot;pixy_init(): &quot;);
+        pixy_error(pixy_init_status);
+
+        return pixy_init_status;
+    }
+    Adafruit_PixelDust        *sand = NULL;
+    scale = 2;
+    bounce = 64;
+    sand = new Adafruit_PixelDust(width, height, nGrains, scale, bounce, false);
+    if(!sand-&gt;begin()) {
+           puts(&quot;PixelDust init failed&quot;);
+           return 3;
+    }
+
+    //sand-&gt;randomize(); // Initialize random sand positions
+
+    // Set up initial sand coordinates, in 8x8 blocks
+    int n = 0;
+    for(i=0; i&lt;8; i++) {
+         xx = i * width / 8;
+         yy =  height * 7 / 8;
+         for(y=0; y&lt;8; y++) {
+               for(x=0; x&lt;8; x++) {
+               sand-&gt;setPosition(n++, xx + x, yy + y);
+               }
+         }
+    }
+
+    // Initialize BCM functions and display capture class.
+    bcm_host_init();
+    BCMDisplayCapture displayCapture(capture_width, capture_height);
+
+    // Loop forever waiting for Ctrl-C signal to quit.
+    signal(SIGINT, sigintHandler);
+    cout &lt;&lt; &quot;Press Ctrl-C to quit...&quot; &lt;&lt; endl;
+    ii = 0;
+    while (running) {
+      // Read accelerometer...
+      //lis3dh.accelRead(&amp;xx, &amp;yy, &amp;zz);
+      //sand-&gt;iterate(xx, -yy, zz);
+      //printf(&quot;accelRead xx:%d yy:%d zz:%d\n&quot;, xx, yy, zz);
+
+      //Read Pixy
+      if(pixy_blocks_are_new() &amp;&amp; running) {
+                blocks_copied = pixy_get_blocks(BLOCK_BUFFER_SIZE, &amp;blocks[0]);
+                //printf(&quot;frame %d: bclocks_copied %d\n&quot;, ii, blocks_copied);
+                int size = 0;
+                for(i = 0; i != blocks_copied; ++i) {
+                //      printf(&quot;  %s\n&quot;, buf);
+                //      printf(&quot;sig:%d x:%d y:%d\n&quot;, blocks[i].signature, blocks[i].x, blocks[i].y);
+                        //find and use the largest block
+                        if ((blocks[i].width * blocks[i].height) &gt; size) {
+                                size = blocks[i].width * blocks[i].height;
+                                //blocks[i].print(buf);
+                                xx = blocks[i].x * 256;
+                                yy = blocks[i].y * 256;
+                                zz = 10240;
+                                //printf(&quot;  %s xx:%d yy:%d\n&quot;, buf, xx, yy);
+                        }
+                }
+                if(blocks_copied &gt; 0){
+                        ii++;
+                        pxx = pixy_rcs_get_position(0);
+                        pyy = pixy_rcs_get_position(1);
+                        sand-&gt;iterate(xx, -yy, zz);
+                        //printf(&quot;frame %d: bclocks_copied %d xx:%d -yy;%d\n&quot;, ii, blocks_copied, xx, -yy);
+                }
+      }
+      // Capture the current display image.
+      displayCapture.capture();
+      // Loop through the frame data and set the pixels on the matrix canvas.
+      for (int y=0; y&lt;config.getDisplayHeight(); ++y) {
+        for (int x=0; x&lt;config.getDisplayWidth(); ++x) {
+          uint8_t red, green, blue;
+          displayCapture.getPixel(x+x_offset, y+y_offset, &amp;red, &amp;green, &amp;blue);
+          offscreen_canvas-&gt;SetPixel(x, y, red, green, blue);
+        }
+      }
+
+      for(i=0; i&lt;nGrains; i++) { // Sand...
+        sand-&gt;getPosition(i, &amp;sx, &amp;sy);
+        //printf(&quot;sand-&gt;getPosition i:%d x:%d y:%d\n&quot;, i, sx, sy);
+        int n = i / 64; // Color index
+        offscreen_canvas-&gt;SetPixel(sx, sy,
+                         colors[n][0], colors[n][1], colors[n][2]);
+      }
+
+
+      offscreen_canvas = canvas-&gt;SwapOnVSync(offscreen_canvas);
+      // Sleep for 25 milliseconds (40Hz refresh)
+      //usleep(25 * 1000);
+      // Sleep for 33.3 milliseconds (30HZ refresh)
+      usleep(33.3 * 1000);
+
+    }
+    canvas-&gt;Clear();
+    delete canvas;
+  }
+  catch (const exception&amp; ex) {
+    cerr &lt;&lt; ex.what() &lt;&lt; endl;
+    usage(argv[0]);
+    return -1;
+  }
+  return 0;
+}
+
+</code></pre><br>
+</div> 
+</div>
+</div>    
+</body>
+</html>
